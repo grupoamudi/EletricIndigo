@@ -4,21 +4,27 @@ import sys
 import struct
 import json
 from thread import start_new_thread
+import rtmidi
 
 HOST = '' # all availabe interfaces
 PORT = 9999 # arbitrary non privileged port 
+
+def initRtmidi():
+    midiout = rtmidi.MidiOut()
+    midiout.open_port(1)
+    return midiout;
 
 def readClientThread(conn, addr, valList, limitList):
     while True:
         try:
             buff = conn.recv(6)
             if len(buff) != 6 :
+                print len(buff)
                 continue
             deviceID = struct.unpack("I", buff[0:4])[0] 
             val = struct.unpack("H", buff[4:6])[0]
             if(deviceID in limitList.keys()):
                 if(val > limitList[deviceID]['max'] or val < limitList[deviceID]['min']):
-                    print 'Value outside the limits, sending limits'
                     buff  = struct.pack('H', limitList[deviceID]['min'])
                     buff += struct.pack('H', limitList[deviceID]['max'])
                     conn.send(buff)
@@ -49,11 +55,7 @@ def serverThread(host, port, valList, limitList):
         sys.exit()
     
     print("Listening...")
-    
-    # The code below is what you're looking for ############
-    
     while True:
-        # blocking call, waits to accept a connection
         s.listen(1)
         conn, addr = s.accept()
         print("[-] Connected to " + addr[0] + ":" + str(addr[1]))
@@ -74,12 +76,31 @@ def updateDefinitions(limitList):
         datafile.close()
     except:
         return
+    
+def checkLimits(limitList, valList, stateList, midiOut):
+    for id in valList:
+        val = valList[id]
+        if not id in stateList:
+            stateList[id] = 0
+        if val > 0:
+            if val < 2000:
+                if(stateList[id] == 0):
+                    midiOut.send_message([0x90, 120, 112])
+                    stateList[id] = 1
+                    print val
+            else:
+                if(stateList[id] == 1):
+                    midiOut.send_message([0x90, 60, 112])
+                    stateList[id] = 0
+                    print val
+        valList[id] = -1;
 
-
+stateList = {}
 valList   = {}
 limitList = {}
+midiOut = initRtmidi()
 start_new_thread(serverThread, (HOST, PORT, valList, limitList))
 while 1:
-    print valList
     updateDefinitions(limitList)
-    time.sleep(1)
+    checkLimits(limitList, valList, stateList, midiOut)
+    time.sleep(0.1)
