@@ -1,8 +1,8 @@
 
 #include <ESP8266WiFi.h>
 
-#define SSID      "Conker"
-#define PASSWORD  "2mais2=Quatro"
+#define SSID      "ssid"
+#define PASSWORD  "password"
 #define HOST_IP   "192.168.1.103"
 #define HOST_PORT 9999
 
