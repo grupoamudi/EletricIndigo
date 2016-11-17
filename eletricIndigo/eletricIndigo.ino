@@ -1,8 +1,8 @@
 
 #include <ESP8266WiFi.h>
 
-#define SSID      "ssid"
-#define PASSWORD  "password"
+#define SSID      "eletricIndigo"
+#define PASSWORD  "indigoEletric"
 #define HOST_IP   "192.168.1.103"
 #define HOST_PORT 9999
 
@@ -29,16 +29,19 @@ void connectToWifi()
 
   Serial.println("");
   Serial.println("WiFi connected");  
-  Serial.println("IP address: ");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());  
+  Serial.println(WiFi.gatewayIP());  
 }
 
 uint8_t connectToHost()
 {
+  Serial.println(WiFi.status());
+  Serial.println(WiFi.localIP());  
   if(WiFi.status() != WL_CONNECTED) {
     connectToWifi();
   }
-  if (!client.connect(HOST_IP, HOST_PORT)) {
+  if (!client.connect(WiFi.gatewayIP(), HOST_PORT)) {
     Serial.println("connection failed");
     return 0;
   } else {
@@ -53,7 +56,6 @@ uint8_t sendData(uint8_t *buff)
   uint8_t responseCntr = 0;
   if(!client.connected())
   {
-    Serial.println("Host not available");
     if(!connectToHost())
     {
       Serial.println("Coudn't connect to host");
