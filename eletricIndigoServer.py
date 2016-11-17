@@ -5,13 +5,20 @@ import struct
 import json
 from thread import start_new_thread
 import rtmidi
+import platform
 
 HOST = '' # all availabe interfaces
 PORT = 9999 # arbitrary non privileged port 
 
 def initRtmidi():
     midiout = rtmidi.MidiOut()
-    midiout.open_port(1)
+    if(platform.platform().find("Linux") != -1):
+        midiout.open_port(0)
+    elif(platform.platform().find("Windows") != -1):
+        midiout.open_port(1)
+    else:
+        print midiout.get_ports()
+        fjkdsla
     return midiout;
 
 def readClientThread(conn, addr, valList, limitList):
@@ -28,6 +35,8 @@ def readClientThread(conn, addr, valList, limitList):
                     buff  = struct.pack('H', limitList[deviceID]['min'])
                     buff += struct.pack('H', limitList[deviceID]['max'])
                     conn.send(buff)
+            if not (deviceID in valList):
+                print str(deviceID) + " Connected"
             valList[deviceID] = val
         except:
             print "Breaking the Connection with: " + str(addr)
@@ -73,6 +82,7 @@ def updateDefinitions(limitList):
                 limitList[device['id']] = {}
             limitList[device['id']]['min'] = device['min']
             limitList[device['id']]['max'] = device['max']
+            limitList[device['id']]['num'] = device['num']
         datafile.close()
     except:
         return
@@ -82,15 +92,15 @@ def checkLimits(limitList, valList, stateList, midiOut):
         val = valList[id]
         if not id in stateList:
             stateList[id] = 0
-        if val > 0:
-            if val < 2000:
+        if val >= 0:
+            if val < limitList[id]['max']:
                 if(stateList[id] == 0):
-                    midiOut.send_message([0x90, 120, 112])
+                    midiOut.send_message([0x80, 10*limitList[id]['num'], 112])
                     stateList[id] = 1
                     print val
             else:
                 if(stateList[id] == 1):
-                    midiOut.send_message([0x90, 60, 112])
+                    midiOut.send_message([0x90, 10*limitList[id]['num'], 112])
                     stateList[id] = 0
                     print val
         valList[id] = -1;
