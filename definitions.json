@@ -1,6 +1,13 @@
 {
     "devices": 
     [
-        {"id":1623420, "min": 0, "max": 2000, "num": 1}
+        {"id":12972699, "min": 0, "max": 5000, "num": 1, "polarity": 1},
+        {"id":13162671, "min": 0, "max": 5000, "num": 2, "polarity": 1},
+        {"id":13304640, "min": 0, "max": 5000, "num": 3, "polarity": 1},
+        {"id":12973760, "min": 0, "max": 5000, "num": 4, "polarity": 1},
+        {"id":2227709,  "min": 0, "max": 5000, "num": 5, "polarity": 1},
+        {"id":12704659, "min": 0, "max": 5000, "num": 6, "polarity": 1},
+        {"id":12777620, "min": 0, "max": 5000, "num": 7, "polarity": 1},
+        {"id":13163355, "min": 0, "max": 5000, "num": 10, "polarity": 1}
     ]
 }

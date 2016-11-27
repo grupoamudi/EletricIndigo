@@ -17,8 +17,7 @@ def initRtmidi():
     elif(platform.platform().find("Windows") != -1):
         midiout.open_port(1)
     else:
-        print midiout.get_ports()
-        fjkdsla
+        midiout.open_port(0)
     return midiout;
 
 def readClientThread(conn, addr, valList, limitList):
@@ -30,6 +29,7 @@ def readClientThread(conn, addr, valList, limitList):
                 continue
             deviceID = struct.unpack("I", buff[0:4])[0] 
             val = struct.unpack("H", buff[4:6])[0]
+            print str(deviceID) + ": " + str(val)
             if(deviceID in limitList.keys()):
                 if(val > limitList[deviceID]['max'] or val < limitList[deviceID]['min']):
                     buff  = struct.pack('H', limitList[deviceID]['min'])
@@ -80,9 +80,12 @@ def updateDefinitions(limitList):
         for device in data['devices']:
             if not device['id'] in limitList.keys():
                 limitList[device['id']] = {}
+                limitList[device['id']]['state'] = 0
+                limitList[device['id']]['stateNum'] = 2
             limitList[device['id']]['min'] = device['min']
             limitList[device['id']]['max'] = device['max']
             limitList[device['id']]['num'] = device['num']
+            limitList[device['id']]['pol'] = device['polarity']
         datafile.close()
     except:
         return
@@ -91,17 +94,27 @@ def checkLimits(limitList, valList, stateList, midiOut):
     for id in valList:
         val = valList[id]
         if not id in stateList:
-            stateList[id] = 0
+            stateList[id] = limitList[id]['pol']
         if val >= 0:
             if val < limitList[id]['max']:
                 if(stateList[id] == 0):
-                    midiOut.send_message([0x80, 10*limitList[id]['num'], 112])
+                    if(limitList[id]['pol'] == 0):
+                        midiOut.send_message([0x90, 10*limitList[id]['num'] + limitList[id]['state'], 112])
+                    else:
+                        midiOut.send_message([0x80, 10*limitList[id]['num'] + limitList[id]['state'], 112])
                     stateList[id] = 1
                     print val
             else:
                 if(stateList[id] == 1):
-                    midiOut.send_message([0x90, 10*limitList[id]['num'], 112])
+                    if(limitList[id]['pol'] == 0):
+                        midiOut.send_message([0x80, 10*limitList[id]['num'] + limitList[id]['state'], 112])
+                    else:
+                        midiOut.send_message([0x90, 10*limitList[id]['num'] + limitList[id]['state'], 112])
                     stateList[id] = 0
+                    limitList[id]['state'] = limitList[id]['state'] + 1
+                    if(limitList[id]['state'] >= limitList[id]['stateNum']):
+                        limitList[id]['state'] = 0
+                    print str(id) + " State:" +  str(limitList[id]['state'])
                     print val
         valList[id] = -1;
 

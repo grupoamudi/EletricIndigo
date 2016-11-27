@@ -7,7 +7,7 @@
 #define HOST_PORT 9999
 
 #define INPUT_SR04_PIN 4
-#define OUTPUT_SR04_PIN 12
+#define OUTPUT_SR04_PIN 14
 
 
 WiFiClient client;
