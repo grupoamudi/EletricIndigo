@@ -8,6 +8,8 @@
         {"id":2227709,  "min": 0, "max": 5000, "num": 5, "polarity": 1},
         {"id":12704659, "min": 0, "max": 5000, "num": 6, "polarity": 1},
         {"id":12777620, "min": 0, "max": 5000, "num": 7, "polarity": 1},
+        {"id":771451  , "min": 0, "max": 5000, "num": 8, "polarity": 1},
+        {"id":772006  , "min": 0, "max": 5000, "num": 9, "polarity": 1},
         {"id":13163355, "min": 0, "max": 5000, "num": 10, "polarity": 1}
     ]
 }

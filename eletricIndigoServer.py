@@ -20,24 +20,24 @@ def initRtmidi():
         midiout.open_port(0)
     return midiout;
 
-def readClientThread(conn, addr, valList, limitList):
+def readClientThread(conn, addr, devicesList):
     while True:
         try:
             buff = conn.recv(6)
             if len(buff) != 6 :
-                print len(buff)
                 continue
             deviceID = struct.unpack("I", buff[0:4])[0] 
             val = struct.unpack("H", buff[4:6])[0]
-            print str(deviceID) + ": " + str(val)
-            if(deviceID in limitList.keys()):
-                if(val > limitList[deviceID]['max'] or val < limitList[deviceID]['min']):
-                    buff  = struct.pack('H', limitList[deviceID]['min'])
-                    buff += struct.pack('H', limitList[deviceID]['max'])
+            if(deviceID in devicesList.keys()):
+                if(val > devicesList[deviceID]['max'] or val < devicesList[deviceID]['min']):
+                    buff  = struct.pack('H', devicesList[deviceID]['min'])
+                    buff += struct.pack('H', devicesList[deviceID]['max'])
                     conn.send(buff)
-            if not (deviceID in valList):
+                devicesList[deviceID]['val'] = val
+                devicesList[deviceID]['run'] = 0
+                devicesList[deviceID]['last'] = time.time()
+            else:
                 print str(deviceID) + " Connected"
-            valList[deviceID] = val
         except:
             print "Breaking the Connection with: " + str(addr)
             break;
@@ -45,7 +45,7 @@ def readClientThread(conn, addr, valList, limitList):
 
 
 
-def serverThread(host, port, valList, limitList):
+def serverThread(host, port, devicesList):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -53,7 +53,6 @@ def serverThread(host, port, valList, limitList):
         print("Could not create socket. Error Code: ", str(msg[0]), "Error: ", msg[1])
         sys.exit(0)
     
-    print("[-] Socket Created")
     
     # bind socket
     try:
@@ -63,67 +62,82 @@ def serverThread(host, port, valList, limitList):
         print("Bind Failed. Error Code: {} Error: {}".format(str(msg[0]), msg[1]))
         sys.exit()
     
-    print("Listening...")
     while True:
         s.listen(1)
         conn, addr = s.accept()
-        print("[-] Connected to " + addr[0] + ":" + str(addr[1]))
     
-        start_new_thread(readClientThread, (conn, addr, valList, limitList))
+        start_new_thread(readClientThread, (conn, addr, devicesList))
     
     s.close()
 
-def updateDefinitions(limitList):
+def updateDefinitions(devicesList):
     try:
         datafile = open('definitions.json')
         data = json.load(datafile)
         for device in data['devices']:
-            if not device['id'] in limitList.keys():
-                limitList[device['id']] = {}
-                limitList[device['id']]['state'] = 0
-                limitList[device['id']]['stateNum'] = 2
-            limitList[device['id']]['min'] = device['min']
-            limitList[device['id']]['max'] = device['max']
-            limitList[device['id']]['num'] = device['num']
-            limitList[device['id']]['pol'] = device['polarity']
+            if not device['id'] in devicesList.keys():
+                devicesList[device['id']] = {}
+                devicesList[device['id']]['state'] = 0
+                devicesList[device['id']]['fase'] = 0
+                devicesList[device['id']]['faseNum'] = 2
+                devicesList[device['id']]['val'] = 0
+                devicesList[device['id']]['run'] = 0
+                devicesList[device['id']]['last'] = 0
+            devicesList[device['id']]['min'] = device['min']
+            devicesList[device['id']]['max'] = device['max']
+            devicesList[device['id']]['num'] = device['num']
+            devicesList[device['id']]['pol'] = device['polarity']
         datafile.close()
     except:
         return
     
-def checkLimits(limitList, valList, stateList, midiOut):
-    for id in valList:
-        val = valList[id]
-        if not id in stateList:
-            stateList[id] = limitList[id]['pol']
-        if val >= 0:
-            if val < limitList[id]['max']:
-                if(stateList[id] == 0):
-                    if(limitList[id]['pol'] == 0):
-                        midiOut.send_message([0x90, 10*limitList[id]['num'] + limitList[id]['state'], 112])
+def checkLimits(devicesList, midiOut):
+    for id in devicesList:
+        if devicesList[id]['run'] == 0:
+            val = devicesList[id]['val']
+            if val < devicesList[id]['max']:
+                if(devicesList[id]['state'] == 0):
+                    if(devicesList[id]['pol'] == 0):
+                        midiOut.send_message([0x90, 10*devicesList[id]['num'] + devicesList[id]['fase'], 112])
                     else:
-                        midiOut.send_message([0x80, 10*limitList[id]['num'] + limitList[id]['state'], 112])
-                    stateList[id] = 1
-                    print val
+                        midiOut.send_message([0x80, 10*devicesList[id]['num'] + devicesList[id]['fase'], 112])
+                    devicesList[id]['state'] = 1
             else:
-                if(stateList[id] == 1):
-                    if(limitList[id]['pol'] == 0):
-                        midiOut.send_message([0x80, 10*limitList[id]['num'] + limitList[id]['state'], 112])
+                if(devicesList[id]['state'] == 1):
+                    if(devicesList[id]['pol'] == 0):
+                        midiOut.send_message([0x80, 10*devicesList[id]['num'] + devicesList[id]['fase'], 112])
                     else:
-                        midiOut.send_message([0x90, 10*limitList[id]['num'] + limitList[id]['state'], 112])
-                    stateList[id] = 0
-                    limitList[id]['state'] = limitList[id]['state'] + 1
-                    if(limitList[id]['state'] >= limitList[id]['stateNum']):
-                        limitList[id]['state'] = 0
-                    print str(id) + " State:" +  str(limitList[id]['state'])
-                    print val
-        valList[id] = -1;
+                        midiOut.send_message([0x90, 10*devicesList[id]['num'] + devicesList[id]['fase'], 112])
+                    devicesList[id]['state'] = 0
+                    devicesList[id]['fase'] = devicesList[id]['fase'] + 1
+                    if(devicesList[id]['fase'] >= devicesList[id]['faseNum']):
+                        devicesList[id]['fase'] = 0
+            devicesList[id]['run'] = 1
+
+def printDevices(devicesList):
+    print '\n'*1000
+    print '-'*(54+15)
+    print '{:^10s} | {:^10s} | {:^10s} | {:^4s} | {:^10s} | {:^10s}'.format("id", 'Connected', 'Value', 'Fase', 'Min', 'Max')
+    print '-'*(54+15)
+    for id in devicesList:
+        device = devicesList[id]
+        if(time.time() - device['last']) > 10:
+            state = 'Offline'
+            color = '\033[93m'
+        else:
+            state = 'Online'
+            color = '\033[92m'
+        print color + '{:^10d} | {:^10s} | {:^10d} | {:^4d} | {:^10d} | {:^10d}'.format(id, state, device['val'], device['fase'], device['min'], device['max']) + '\033[0m'
+        print '-'*(54+15)
+
 
 stateList = {}
 valList   = {}
-limitList = {}
+devicesList = {}
 midiOut = initRtmidi()
-start_new_thread(serverThread, (HOST, PORT, valList, limitList))
+start_new_thread(serverThread, (HOST, PORT, devicesList))
 while 1:
-    updateDefinitions(limitList)
-    checkLimits(limitList, valList, stateList, midiOut)
+    printDevices(devicesList)
+    updateDefinitions(devicesList)
+    checkLimits(devicesList, midiOut)
     time.sleep(0.1)
